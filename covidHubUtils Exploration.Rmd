@@ -1,0 +1,298 @@
+---
+title: 'covidHubUtils Exploration'
+author: "Li Shandross"
+date: "5/24/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(covidHubUtils)
+library(tidyverse)
+theme_set(theme_bw())
+```
+
+
+```{r message = FALSE}
+# Load forecasts that were submitted in a time window from zoltar
+inc_case_targets <- paste(1:4, "wk ahead inc case")
+forecasts_case <- load_latest_forecasts(models = "COVIDhub-ensemble",
+                                        last_forecast_date = "2020-11-30",
+                                        forecast_date_window_size = 6, 
+                                        locations = "US",
+                                        types = c("point","quantile"),
+                                        targets = inc_case_targets,
+                                        source = "zoltar",
+                                        verbose = FALSE,
+                                        as_of=NULL,
+                                        hub = c("US"))
+
+inc_hosp_targets <- paste(0:130, "day ahead inc hosp")
+forecasts_hosp <- load_latest_forecasts(models = "COVIDhub-ensemble",
+                                        last_forecast_date = "2021-03-08",
+                                        forecast_date_window_size = 6, 
+                                        locations = "US",
+                                        types = c("point","quantile"),
+                                        targets = inc_hosp_targets,
+                                        source = "zoltar",
+                                        verbose = FALSE,
+                                        as_of=NULL,
+                                        hub = c("US"))
+
+inc_death_targets <- paste(1:4, "wk ahead inc death")
+forecasts_death <- load_latest_forecasts(models = "COVIDhub-ensemble",
+                                         last_forecast_date = "2021-03-08",
+                                         forecast_date_window_size = 6, 
+                                         locations = "US",
+                                         types = c("point","quantile"),
+                                         targets = inc_death_targets,
+                                         source = "zoltar",
+                                         verbose = FALSE,
+                                         as_of=NULL,
+                                         hub = c("US"))
+```
+
+```{r}
+p <- plot_forecasts(forecast_data = forecasts_case, 
+                    truth_source = "JHU",
+                    target_variable = "inc case",  
+                    intervals = c(.5, .8, .95))
+```
+
+
+## Plot multiple models
+
+Some additional arguments in `plot_forecasts()` are helpful for creating a reasonable plot if `forecast_data` has multiple locations, forecast dates or models.
+
+The following code looks at three models' forecasts of incident deaths at one time point for one location. Note the use of the `fill_by_model` option which allows colors to vary by model and the `facet` command which is passed to ggplot.
+
+```{r}
+fdat <- load_latest_forecasts(models = c("Karlen-pypm", "UMass-MechBayes", "CU-select"),
+                              last_forecast_date = "2020-11-30",
+                              source = "zoltar",
+                              forecast_date_window_size = 6,
+                              locations = "US",
+                              types = c("quantile", "point"), 
+                              verbose = FALSE,
+                              targets = paste(1:4, "wk ahead inc death"))
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE, 
+                    plot=FALSE) 
+
+p +
+  scale_x_date(name=NULL, date_breaks = "1 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+
+Thanksgiving and Christmas Outbreaks - Ensemble Model
+```{r}
+fdat <- load_forecasts(models = "COVIDhub-ensemble",
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc death"),
+                       verbose = FALSE)
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+p + scale_x_date(name=NULL, date_breaks = "1 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+Thanksgiving and Christmas Outbreaks - Multiple Models
+```{r}
+fdat <- load_forecasts(models =  c("COVIDhub-ensemble", "COVIDhub-baseline"),
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc death"),
+                       verbose = FALSE)
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+p + scale_x_date(name=NULL, date_breaks = "1 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+"COVIDhub-ensemble", "COVIDhub-baseline", "LANL-GrowthRate", "CEID-Walk", "MSRA-DeepST"
+
+Incident Deaths
+```{r}
+fdat <- load_forecasts(models =  c("COVIDhub-ensemble", "CEID-Walk", "COVIDhub-baseline"),
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc death"),
+                       verbose = FALSE)
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+p + scale_x_date(name=NULL, date_breaks = "2 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+
+
+```{r}
+fdat <- load_forecasts(models =  c("COVIDhub-ensemble", "CEID-Walk", "COVIDhub-baseline"),
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc case"),
+                       verbose = FALSE)
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc case", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+p + scale_x_date(name=NULL, date_breaks = "2 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+
+```{r}
+fdat1 <- load_forecasts(models = "COVIDhub-ensemble",
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc death"),
+                       verbose = FALSE)
+
+fdat2 <- load_forecasts(models = "COVIDhub-ensemble",
+                       forecast_dates = seq.Date(as.Date("2020-11-30"), as.Date("2020-12-28"), by = "28 days"),
+                       locations = "US",
+                       types = c("quantile", "point"), 
+                       targets = paste(1:4, "wk ahead inc case"),
+                       verbose = FALSE)
+
+p1 <- plot_forecasts(fdat1, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+p2 <- plot_forecasts(fdat2, 
+                    target_variable = "inc case", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE,
+                    plot = FALSE) 
+
+g1 <- p1 + scale_x_date(name=NULL, date_breaks = "2 months", date_labels = "%b") +
+  theme(legend.position = "none", axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+
+g2 <- p2 + scale_x_date(name=NULL, date_breaks = "2 months", date_labels = "%b") +
+  theme(legend.position = "none", axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+
+library
+
+
+grid.arrange(g1, g2,
+             ncol = 2, as.table = TRUE)
+```
+
+## Score forecasts
+
+The inputs to the `scored_forecasts()` include a `forecasts` data frame created by `load_forecasts()` and a `truth` data frame created by `load_truth()`. 
+
+The following code scores forecasts by the corresponding truth data loaded earlier in this vignette in long format. This is the example for the US Forecast Hub:
+```{r}
+inc_case_targets <- paste(1:4, "wk ahead inc case")
+
+truth_data <- load_truth(truth_source = "JHU",
+                         target_variable = "inc death",
+                         locations = "US")
+
+forecasts_multiple <- load_forecasts(models = c("COVIDhub-baseline", "COVIDhub-ensemble"),
+                      forecast_dates = as.Date(c("2020-12-14", "2020-12-15")) + seq(0, 35, 7),
+                      locations = "US",
+                      types = c("point","quantile"),
+                      targets = paste(1:4, "wk ahead inc death"),
+                      source = "zoltar",
+                      verbose = FALSE,
+                      as_of=NULL,
+                      hub = c("US"))
+
+scores <- score_forecasts(forecasts = forecasts_multiple,
+                          return_format = "wide",
+                          truth = truth_data)
+
+datatable(scores, 
+          extensions = 'FixedColumns',
+          options = list(dom = 't', scrollX = TRUE,
+                         fixedColumns = list(leftColumns = 2)))
+
+```
+
+```{r}
+inc_case_targets <- paste(1:4, "wk ahead inc case")
+
+truth_data <- load_truth(truth_source = "JHU",
+                         target_variable = "inc death",
+                         locations = "US")
+
+forecasts_multiple <- load_forecasts(models = c("COVIDhub-baseline", "COVIDhub-ensemble"),
+                      forecast_dates = as.Date(c("2020-06-08", "2021-05-24")) + seq(0, 315, 7),
+                      locations = "US",
+                      types = c("point","quantile"),
+                      targets = paste(1:4, "wk ahead inc death"),
+                      source = "zoltar",
+                      verbose = FALSE,
+                      as_of=NULL,
+                      hub = c("US"))
+
+scores <- score_forecasts(forecasts = forecasts_multiple,
+                          return_format = "wide",
+                          truth = truth_data)
+
+datatable(scores, 
+          extensions = 'FixedColumns',
+          options = list(dom = 't', scrollX = TRUE,
+                         fixedColumns = list(leftColumns = 2)))
+
+
+ggplot(filter(scores, horizon == 1), aes(x = forecast_date, y = wis, color = model)) + geom_line()
+```
+
+

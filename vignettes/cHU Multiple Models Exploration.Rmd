@@ -1,0 +1,202 @@
+---
+title: "covidHubUtils Multiple Models Exploration"
+author: "Li Shandross"
+date: "5/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(covidHubUtils)
+library(tidyverse)
+theme_set(theme_bw())
+```
+
+
+## Plot multiple models
+
+Some additional arguments in `plot_forecasts()` are helpful for creating a reasonable plot if `forecast_data` has multiple locations, forecast dates or models.
+
+The following code looks at three models' forecasts of incident deaths at one time point for one location. Note the use of the `fill_by_model` option which allows colors to vary by model and the `facet` command which is passed to ggplot.
+
+```{r message=FALSE}
+fdat <- load_latest_forecasts(models = c("Karlen-pypm", "UMass-MechBayes", "CU-select"),
+                              last_forecast_date = "2021-03-08",
+                              source = "zoltar",
+                              forecast_date_window_size = 6,
+                              locations = "US",
+                              types = c("quantile", "point"), 
+                              verbose = FALSE,
+                              targets = paste(1:4, "wk ahead inc death"))
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE, 
+                    plot=FALSE) 
+
+p +
+  scale_x_date(name=NULL, date_breaks = "1 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+
+## Editing
+
+```{r message=FALSE}
+fdat <- 
+  load_latest_forecasts(models = c("Karlen-pypm", "UMass-MechBayes", "CU-select"),
+                              last_forecast_date = "2021-03-02",
+                              source = "zoltar",
+                              forecast_date_window_size = 6,
+                              locations = "US",
+                              types = c("quantile", "point"), 
+                              verbose = FALSE,
+                              targets = paste(1:4, "wk ahead inc death"))
+
+p <- plot_forecasts(fdat, 
+                    target_variable = "inc death", 
+                    truth_source = "JHU",
+                    intervals = c(.5, .95), 
+                    facet = .~model,
+                    fill_by_model = TRUE, 
+                    plot=FALSE) 
+
+p +
+  scale_x_date(name=NULL, date_breaks = "1 months", date_labels = "%b") +
+  theme(axis.ticks.length.x = unit(0.5, "cm"),
+    axis.text.x = element_text(vjust = 7, hjust = -0.2))
+```
+
+```{r}
+load_latest_forecasts(models = c("Karlen-pypm", "UMass-MechBayes", "CU-select"),
+                              last_forecast_date = "2021-03-02",
+                              source = "zoltar",
+                              forecast_date_window_size = 6,
+                              locations = "US",
+                              types = c("quantile", "point"), 
+                              verbose = FALSE,
+                              targets = paste(1:4, "wk ahead inc death"))
+
+###
+
+#Understand the forecast format for models on the covid-19 forecast hub and write a function to construct a data frame with specific locations/date range.
+
+my_function <- function(models, locations, targets){
+  
+}
+
+```
+
+```{r}
+load_forecast_time_period <- function ( #function name change
+  models = NULL,
+  start_forecast_date_range, #
+  end_forecast_date_range, #
+  # removed forecast_date_window_size
+  locations = NULL,
+  types = NULL,
+  targets = NULL,
+  source = "local_hub_repo",
+  hub_repo_path,
+  as_of = NULL,
+  hub = c("US", "ECDC"),
+  verbose = TRUE) {
+  
+  # validate source
+  source <- match.arg(source, choices = c("local_hub_repo", "zoltar"))
+  
+  # check date format and generate dates of forecasts to load
+  forecast_dates <- tryCatch({
+   as.character(as.Date(start_forecast_date_range)) 
+    as.character(as.Date(end_forecast_date_range))
+    as.character(seq(as.Date(start_forecast_date_range), as.Date(end_forecast_date_range), by = "7 days"))
+    }, error = function(err){
+    }, error = function(err){
+      stop("Error in load_latest_forecasts: Please provide a valid date object or
+           string in format YYYY-MM-DD in start_forecast_date_range or end_forecast_date_range")
+      }
+    )
+
+  if (source == "local_hub_repo") {
+    # validate hub repo path
+    if (missing(hub_repo_path) | !dir.exists(hub_repo_path)) {
+      stop("Error in load_latest_forecasts: Please provide a vaid path to hub repo.")
+    } 
+    
+    # path to data-processed folder in hub repo
+    data_processed <- file.path(hub_repo_path, "data-processed/")
+    
+    forecasts <- load_latest_forecasts_repo(file_path = data_processed, 
+                                            models = models, 
+                                            forecast_dates = forecast_dates, 
+                                            locations = locations, 
+                                            types = types, 
+                                            targets = targets, 
+                                            hub = hub, 
+                                            verbose = verbose)
+  } else {
+    forecasts <- load_latest_forecasts_zoltar(models = models, 
+                                              forecast_dates = forecast_dates,
+                                              locations = locations, 
+                                              types = types,
+                                              targets = targets,
+                                              as_of = as_of,
+                                              hub = hub,
+                                              verbose = verbose)
+  }
+  
+  return(forecasts)
+}
+
+
+load_forecast_time_period(
+  models = "Karlen-pypm",
+  source = "zoltar",
+  start_forecast_date_range = "2021-03-02", 
+  end_forecast_date_range = "2021-03-09",
+  locations = "US",
+  types = "point",
+  targets = "1 wk ahead inc death",
+  verbose = FALSE)
+
+##
+ load_latest_forecasts(models = c("Karlen-pypm"),
+                              last_forecast_date = "2021-03-02",
+                              source = "zoltar",
+                              forecast_date_window_size = 6,
+                              locations = "US",
+                              types = c("point"), 
+                              verbose = FALSE,
+                              targets = paste(1, "wk ahead inc death"))
+ 
+
+```
+
+
+```{r}
+tryCatch({
+   as.character(as.Date(start_fdr)) 
+    as.character(as.Date(end_fdr))
+    as.character(seq(as.Date(start_fdr), as.Date(end_fdr), by = "7 days"))
+    }, error = function(err){
+      stop("Error in load_latest_forecasts: Please provide a valid date object or
+           string in format YYYY-MM-DD in start_forecast_date_range or end_forecast_date_range")
+      }
+    )
+
+
+tryCatch({
+    as.character(as.Date("2021-03-02") +
+                   seq(from = -6, to = 0, by = 1))
+    }, error = function(err){
+      stop("Error in load_latest_forecasts: Please provide a valid date object or
+           string in format YYYY-MM-DD in latest_forecast_date.")
+      }
+    )
+```
+

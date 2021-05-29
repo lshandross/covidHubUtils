@@ -1,15 +1,16 @@
 #' Load covid forecasts from local hub repo or Zoltar.  
 #' Return the most recent forecast from each model within 
-#' forecast_date_window_size days of the last_forecast_date
+#' a specified time period.
 #' 
 #' @param models Character vector of model abbreviations.
 #' If missing, forecasts for all models that submitted forecasts 
 #' meeting the other criteria are returned.
+#' @param start_forecast_date_range Start date for specified time period
+#' in 'yyyy-mm-dd' format. 
+#' @param end_forecast_date_range End date for specified time period
+#' in 'yyyy-mm-dd' format.
 #' @param last_forecast_date The forecast date of forecasts to retrieve 
 #' in 'yyyy-mm-dd' format.
-#' @param forecast_date_window_size The number of days across which to 
-#' look for recent forecasts. Default to 0, which means to only look 
-#' at the last_forecast_date only. 
 #' @param locations list of fips. Defaults to all locations with available forecasts.
 #' @param types Character vector specifying type of forecasts to load: “quantile” 
 #' or “point”. Defaults to all types  with available forecasts
@@ -37,53 +38,18 @@
 #' temporal_resolution, target_variable, target_end_date, type, quantile, value,
 #' location_name, population, geo_type, geo_value, abbreviation
 #' 
-#' 
-#' 
-#' 
-#'\dontrun{
-#'
-#'
-#' forecasts <- load_latest_forecasts(models = "COVIDhub-ensemble",
-#'  last_forecast_date = "2020-12-07",
-#'  forecast_date_window_size = 6, 
-#'  locations = "US",
-#'  types = c("point","quantile"),
-#'  targets = paste(1:4, "wk ahead inc case"),
-#'  source = "zoltar",
-#'  verbose = FALSE,
-#'  as_of=NULL,
-#'  hub = c("US"))
-#'  
-#' forecasts_ECDC <- load_latest_forecasts(models=c("ILM-EKF"),
-#'  hub = c("ECDC","US"), 
-#'  last_forecast_date = "2021-03-08",
-#'  forecast_date_window_size = 0,
-#'  locations = c("GB"),
-#'  targets = paste(1:4, "wk ahead inc death"),
-#'  source = "zoltar")
-#'  
-#' load_latest_forecasts(models = "Columbia_UNC-SurvCon", 
-#'  last_forecast_date = "2021-01-03", 
-#'  source = 'zoltar',
-#'  as_of = "2021-01-04",
-#'  verbose = FALSE,
-#'  location = 'US')
-#'  
-#' }
-#'   
 #' @export
-#' 
-
-load_latest_forecasts <- function (
+#'
+#'
+load_forecasts_time_period <- function(
   models = NULL,
-  last_forecast_date,
-  forecast_date_window_size = 0,
+  start_forecast_date_range,
+  end_forecast_date_range, 
   locations = NULL,
   types = NULL,
   targets = NULL,
   source = "local_hub_repo",
   hub_repo_path,
-  data_processed_subpath = "data-processed/",
   as_of = NULL,
   hub = c("US", "ECDC"),
   verbose = TRUE) {
@@ -93,22 +59,23 @@ load_latest_forecasts <- function (
   
   # check date format and generate dates of forecasts to load
   forecast_dates <- tryCatch({
-    as.character(as.Date(last_forecast_date) +
-                   seq(from = -forecast_date_window_size, to = 0, by = 1))
-    }, error = function(err){
-      stop("Error in load_latest_forecasts: Please provide a valid date object or
-           string in format YYYY-MM-DD in latest_forecast_date.")
-      }
-    )
-
+    as.character(as.Date(start_forecast_date_range)) 
+    as.character(as.Date(end_forecast_date_range))
+    as.character(seq(as.Date(start_forecast_date_range), as.Date(end_forecast_date_range), by = "7 days"))
+  }, error = function(err){
+    stop("Error in load_latest_forecasts: Please provide a valid date object or
+           string in format YYYY-MM-DD in start_forecast_date_range or end_forecast_date_range")
+  }
+  )
+  
   if (source == "local_hub_repo") {
     # validate hub repo path
     if (missing(hub_repo_path) | !dir.exists(hub_repo_path)) {
-      stop("Error in load_latest_forecasts: Please provide a valid path to hub repo.")
+      stop("Error in load_latest_forecasts: Please provide a vaid path to hub repo.")
     } 
     
     # path to data-processed folder in hub repo
-    data_processed <- file.path(hub_repo_path, data_processed_subpath)
+    data_processed <- file.path(hub_repo_path, "data-processed/")
     
     forecasts <- load_latest_forecasts_repo(file_path = data_processed, 
                                             models = models, 
